@@ -1,7 +1,7 @@
 {
   "name": "Diário de Viagem - Fortaleza a Nova Soure",
   "short_name": "Viagem Soure",
-  "start_url": "start_url": "./index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#24272a",
   "theme_color": "#0b5d3b",
