@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fortaleza → Nova Soure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0b5d3b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Viagem Soure">
+<style>
+  :root{
+    --asphalt:#24272a;
+    --asphalt-2:#2f3336;
+    --green:#0b5d3b;
+    --green-dark:#073f29;
+    --sign:#f5f3ec;
+    --caution:#f4b73f;
+    --line:#8a9290;
+    --alert:#d9603b;
+    --good:#4caf7d;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--asphalt);
+    background-image:
+      repeating-linear-gradient(0deg, transparent 0 28px, rgba(244,183,63,0.18) 28px 44px);
+    background-position:center top;
+    background-repeat:repeat-y;
+    background-size: 6px 100%;
+    background-position-x: 50%;
+    font-family:'Inter',sans-serif;
+    color:var(--sign);
+    padding: 18px 14px 60px;
+    min-height:100vh;
+  }
+  .sign{
+    background:var(--green);
+    border:4px solid var(--sign);
+    border-radius:6px;
+    padding:16px 14px;
+    text-align:center;
+    box-shadow: 0 4px 0 var(--green-dark);
+    margin-bottom:6px;
+  }
+  .sign .route{
+    font-family:'Oswald',sans-serif;
+    font-weight:700;
+    font-size:1.35rem;
+    letter-spacing:1px;
+    text-transform:uppercase;
+  }
+  .sign .route .arrow{color:var(--caution);}
+  .sign .sub{
+    margin-top:6px;
+    font-family:'Roboto Mono',monospace;
+    font-size:0.78rem;
+    letter-spacing:1px;
+    opacity:0.85;
+  }
+  .progress-wrap{
+    background:var(--asphalt-2);
+    border-radius:4px;
+    padding:10px 12px;
+    margin: 10px 0 22px;
+    border:1px solid #44494c;
+  }
+  .progress-bar{
+    height:8px;
+    background:#1a1c1e;
+    border-radius:4px;
+    overflow:hidden;
+    margin-bottom:8px;
+  }
+  .progress-fill{
+    height:100%;
+    background: linear-gradient(90deg, var(--good), var(--caution));
+    width:0%;
+    transition: width 0.4s ease;
+  }
+  .progress-text{
+    font-family:'Roboto Mono',monospace;
+    font-size:0.78rem;
+    display:flex;
+    justify-content:space-between;
+    opacity:0.9;
+  }
+  .status-pill{
+    display:inline-block;
+    font-family:'Roboto Mono',monospace;
+    font-size:0.7rem;
+    padding:2px 8px;
+    border-radius:3px;
+    margin-top:6px;
+  }
+  .status-good{background:rgba(76,175,125,0.18); color:var(--good); border:1px solid var(--good);}
+  .status-alert{background:rgba(217,96,59,0.18); color:var(--alert); border:1px solid var(--alert);}
+
+  .road{position:relative;}
+  .leg-label{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    font-size:0.85rem;
+    letter-spacing:2px;
+    color:var(--caution);
+    margin: 18px 0 8px 4px;
+  }
+  .checkpoint{
+    display:flex;
+    gap:10px;
+    margin-bottom:12px;
+    align-items:flex-start;
+  }
+  .marker{
+    flex:0 0 56px;
+    background:var(--green);
+    border:2px solid var(--sign);
+    border-radius:4px;
+    color:var(--sign);
+    font-family:'Oswald',sans-serif;
+    font-weight:700;
+    font-size:0.68rem;
+    text-align:center;
+    padding:6px 2px;
+    line-height:1.1;
+  }
+  .card{
+    flex:1;
+    background:var(--sign);
+    color:var(--asphalt);
+    border-radius:4px;
+    padding:12px 14px;
+  }
+  .card h3{
+    font-family:'Oswald',sans-serif;
+    font-size:1rem;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    margin-bottom:4px;
+  }
+  .card .planned{
+    font-size:0.78rem;
+    color:#5a5e60;
+    margin-bottom:6px;
+  }
+  .card .actual{
+    font-family:'Roboto Mono',monospace;
+    font-size:0.85rem;
+    font-weight:700;
+    color:var(--green);
+    margin-bottom:8px;
+    min-height:1.2em;
+  }
+  .card .actual.empty{color:#b6b9ba; font-weight:400; font-style:italic;}
+  button{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:0.85rem;
+    border:none;
+    border-radius:4px;
+    padding:10px 14px;
+    cursor:pointer;
+    width:100%;
+  }
+  .btn-log{
+    background:var(--caution);
+    color:var(--asphalt);
+  }
+  .btn-log:active{transform:translateY(1px);}
+  .btn-undo{
+    background:transparent;
+    color:#9aa0a3;
+    text-decoration:underline;
+    font-size:0.75rem;
+    padding:6px 0 0;
+    width:auto;
+  }
+  .stop-box{
+    background:var(--asphalt-2);
+    border:1px dashed var(--line);
+    border-radius:4px;
+    padding:10px 12px;
+    margin:8px 0 14px 66px;
+    font-size:0.82rem;
+  }
+  .stop-box .stop-title{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    font-size:0.75rem;
+    letter-spacing:1px;
+    color:var(--caution);
+    margin-bottom:6px;
+  }
+  .stop-list{
+    font-family:'Roboto Mono',monospace;
+    font-size:0.75rem;
+    color:#cfd3d4;
+    margin-bottom:8px;
+  }
+  .stop-list div{margin-bottom:2px;}
+  .btn-stop{
+    background:var(--asphalt);
+    color:var(--sign);
+    border:1px solid var(--line);
+  }
+  .btn-stop.active{
+    background:var(--alert);
+    border-color:var(--alert);
+    color:var(--sign);
+  }
+
+  /* Report ticket */
+  .report{
+    margin-top:28px;
+    background:var(--sign);
+    color:var(--asphalt);
+    border-radius:4px;
+    padding:18px 16px;
+    position:relative;
+  }
+  .report::before, .report::after{
+    content:"";
+    position:absolute;
+    left:0; right:0; height:0;
+    border-top: 2px dashed #c9c5b8;
+  }
+  .report::before{top:64px;}
+  .report .ticket-head{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    font-size:1rem;
+    text-align:center;
+    padding-bottom:14px;
+  }
+  .report .ticket-body{padding-top:18px;}
+  .report-row{
+    display:flex;
+    justify-content:space-between;
+    font-family:'Roboto Mono',monospace;
+    font-size:0.82rem;
+    padding:4px 0;
+    border-bottom:1px solid #ece8db;
+  }
+  .report-row.total{
+    font-weight:700;
+    font-size:0.95rem;
+    border-bottom:none;
+    margin-top:6px;
+    padding-top:10px;
+    border-top:2px solid var(--asphalt);
+  }
+  .report-section-title{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    font-size:0.78rem;
+    letter-spacing:1.5px;
+    color:var(--green);
+    margin:14px 0 4px;
+  }
+  .diff-good{color:var(--good); font-weight:700;}
+  .diff-bad{color:var(--alert); font-weight:700;}
+
+  .reset-link{
+    display:block;
+    text-align:center;
+    margin-top:24px;
+    color:#9aa0a3;
+    font-size:0.75rem;
+    text-decoration:underline;
+    background:none;
+    border:none;
+    cursor:pointer;
+  }
+  .loading{text-align:center; padding:40px 0; opacity:0.6; font-family:'Roboto Mono',monospace; font-size:0.8rem;}
+</style>
+</head>
+<body>
+
+<div class="sign">
+  <div class="route">Fortaleza <span class="arrow">➜</span> Nova Soure</div>
+  <div class="sub">BR-116 · ~994 KM · 2 DIAS</div>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="progress-text">
+    <span id="progressKm">0 / 994 km</span>
+    <span id="progressPct">0%</span>
+  </div>
+  <div id="statusPill"></div>
+</div>
+
+<div class="road" id="road">
+  <div class="loading">carregando diário de viagem…</div>
+</div>
+
+<div class="report" id="report" hidden></div>
+
+<button class="reset-link" onclick="resetTrip()">Reiniciar registro de viagem</button>
+
+<script>
+const STORAGE_KEY = 'fortaleza-nova-soure-trip';
+
+const PLAN = {
+  d1_saida:   { km: 0,   label: 'Saída — Fortaleza',            planned: '2026-06-19T13:00:00-03:00' },
+  d1_chegada: { km: 590, label: 'Chegada — Salgueiro (pousada)', planned: '2026-06-19T21:00:00-03:00' },
+  d2_saida:   { km: 590, label: 'Saída — Salgueiro',            planned: '2026-06-20T06:30:00-03:00' },
+  d2_chegada: { km: 994, label: 'Chegada — Nova Soure',         planned: '2026-06-20T12:20:00-03:00' }
+};
+const LEG_KM = { 1: 590, 2: 404 };
+
+let state = {
+  events: { d1_saida: null, d1_chegada: null, d2_saida: null, d2_chegada: null },
+  stops: { 1: [], 2: [] },
+  activeStop: { leg: null, start: null }
+};
+
+async function loadState(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY, false);
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      state = Object.assign(state, parsed);
+    }
+  }catch(e){
+    // nothing saved yet, keep defaults
+  }
+  render();
+}
+
+async function saveState(){
+  try{
+    await window.storage.set(STORAGE_KEY, JSON.stringify(state), false);
+  }catch(e){
+    console.error('Erro ao salvar', e);
+  }
+}
+
+function fmtDateTime(iso){
+  const d = new Date(iso);
+  return d.toLocaleString('pt-BR', { weekday:'short', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+function fmtDuration(ms){
+  if(ms < 0) ms = 0;
+  const totalMin = Math.round(ms/60000);
+  const h = Math.floor(totalMin/60);
+  const m = totalMin%60;
+  return `${h}h${m.toString().padStart(2,'0')}`;
+}
+
+function logEvent(key){
+  state.events[key] = new Date().toISOString();
+  // se estava em parada ativa, encerra ao registrar chegada
+  if((key==='d1_chegada' || key==='d2_chegada') && state.activeStop.leg){
+    closeActiveStop();
+  }
+  saveState();
+  render();
+}
+
+function undoEvent(key){
+  state.events[key] = null;
+  saveState();
+  render();
+}
+
+function toggleStop(leg){
+  if(state.activeStop.leg === leg){
+    closeActiveStop();
+  } else {
+    state.activeStop = { leg, start: new Date().toISOString() };
+  }
+  saveState();
+  render();
+}
+
+function closeActiveStop(){
+  const { leg, start } = state.activeStop;
+  if(leg && start){
+    state.stops[leg].push({ start, end: new Date().toISOString() });
+  }
+  state.activeStop = { leg: null, start: null };
+}
+
+function resetTrip(){
+  if(!confirm('Apagar todos os registros desta viagem?')) return;
+  state = {
+    events: { d1_saida: null, d1_chegada: null, d2_saida: null, d2_chegada: null },
+    stops: { 1: [], 2: [] },
+    activeStop: { leg: null, start: null }
+  };
+  saveState();
+  render();
+}
+
+function sumStops(leg){
+  let total = 0;
+  state.stops[leg].forEach(s => total += (new Date(s.end) - new Date(s.start)));
+  if(state.activeStop.leg === leg && state.activeStop.start){
+    total += (Date.now() - new Date(state.activeStop.start));
+  }
+  return total;
+}
+
+function checkpointCard(key){
+  const p = PLAN[key];
+  const actual = state.events[key];
+  const planned = fmtDateTime(p.planned);
+  let actualHtml, btnHtml;
+  if(actual){
+    const diffMs = new Date(actual) - new Date(p.planned);
+    const diffLabel = diffMs >= 0
+      ? `<span class="diff-bad">+${fmtDuration(diffMs)} vs. previsto</span>`
+      : `<span class="diff-good">-${fmtDuration(Math.abs(diffMs))} vs. previsto</span>`;
+    actualHtml = `<div class="actual">✅ ${fmtDateTime(actual)}<br><span style="font-size:0.7rem;font-weight:500;">${diffLabel}</span></div>`;
+    btnHtml = `<button class="btn-undo" onclick="undoEvent('${key}')">desfazer</button>`;
+  } else {
+    actualHtml = `<div class="actual empty">ainda não registrado</div>`;
+    btnHtml = `<button class="btn-log" onclick="logEvent('${key}')">Registrar agora</button>`;
+  }
+  return `
+    <div class="checkpoint">
+      <div class="marker">KM<br>${p.km}</div>
+      <div class="card">
+        <h3>${p.label}</h3>
+        <div class="planned">Previsto: ${planned}</div>
+        ${actualHtml}
+        ${btnHtml}
+      </div>
+    </div>`;
+}
+
+function stopBox(leg, visible){
+  if(!visible) return '';
+  const active = state.activeStop.leg === leg;
+  const list = state.stops[leg].map(s => {
+    const dur = fmtDuration(new Date(s.end) - new Date(s.start));
+    return `<div>⏸ ${fmtDateTime(s.start).split(', ')[1]} → ${fmtDateTime(s.end).split(', ')[1]} (${dur})</div>`;
+  }).join('');
+  const totalStop = fmtDuration(sumStops(leg));
+  return `
+    <div class="stop-box">
+      <div class="stop-title">Paradas no trecho ${leg} — total ${totalStop}</div>
+      <div class="stop-list">${list || '<div style="opacity:0.6">nenhuma parada registrada</div>'}</div>
+      <button class="btn-stop ${active?'active':''}" onclick="toggleStop(${leg})">
+        ${active ? '▶ Retomar viagem (encerrar parada)' : '⏸ Parei (abastecer, comer, descansar...)'}
+      </button>
+    </div>`;
+}
+
+function buildReport(){
+  const e = state.events;
+  if(!e.d1_saida || !e.d1_chegada || !e.d2_saida || !e.d2_chegada) return '';
+
+  const leg1Total = new Date(e.d1_chegada) - new Date(e.d1_saida);
+  const leg1Stop  = sumStops(1);
+  const leg1Drive = leg1Total - leg1Stop;
+  const leg1Speed = (LEG_KM[1] / (leg1Drive/3600000)).toFixed(0);
+
+  const leg2Total = new Date(e.d2_chegada) - new Date(e.d2_saida);
+  const leg2Stop  = sumStops(2);
+  const leg2Drive = leg2Total - leg2Stop;
+  const leg2Speed = (LEG_KM[2] / (leg2Drive/3600000)).toFixed(0);
+
+  const tripDriveTotal = leg1Drive + leg2Drive;
+  const tripStopTotal  = leg1Stop + leg2Stop;
+  const tripKm = LEG_KM[1] + LEG_KM[2];
+  const tripSpeed = (tripKm / (tripDriveTotal/3600000)).toFixed(0);
+
+  const plannedFinal = new Date(PLAN.d2_chegada.planned);
+  const actualFinal = new Date(e.d2_chegada);
+  const finalDiff = actualFinal - plannedFinal;
+  const finalDiffHtml = finalDiff >= 0
+    ? `<span class="diff-bad">chegou ${fmtDuration(finalDiff)} depois do previsto</span>`
+    : `<span class="diff-good">chegou ${fmtDuration(Math.abs(finalDiff))} antes do previsto</span>`;
+
+  return `
+    <div class="ticket-head">📋 Relatório da Viagem</div>
+    <div class="ticket-body">
+      <div class="report-section-title">Dia 1 — Fortaleza → Salgueiro (590 km)</div>
+      <div class="report-row"><span>Saída</span><span>${fmtDateTime(e.d1_saida)}</span></div>
+      <div class="report-row"><span>Chegada</span><span>${fmtDateTime(e.d1_chegada)}</span></div>
+      <div class="report-row"><span>Tempo total</span><span>${fmtDuration(leg1Total)}</span></div>
+      <div class="report-row"><span>Tempo parado</span><span>${fmtDuration(leg1Stop)}</span></div>
+      <div class="report-row"><span>Tempo rodando</span><span>${fmtDuration(leg1Drive)}</span></div>
+      <div class="report-row"><span>Velocidade média</span><span>${leg1Speed} km/h</span></div>
+
+      <div class="report-section-title">Dia 2 — Salgueiro → Nova Soure (404 km)</div>
+      <div class="report-row"><span>Saída</span><span>${fmtDateTime(e.d2_saida)}</span></div>
+      <div class="report-row"><span>Chegada</span><span>${fmtDateTime(e.d2_chegada)}</span></div>
+      <div class="report-row"><span>Tempo total</span><span>${fmtDuration(leg2Total)}</span></div>
+      <div class="report-row"><span>Tempo parado</span><span>${fmtDuration(leg2Stop)}</span></div>
+      <div class="report-row"><span>Tempo rodando</span><span>${fmtDuration(leg2Drive)}</span></div>
+      <div class="report-row"><span>Velocidade média</span><span>${leg2Speed} km/h</span></div>
+
+      <div class="report-section-title">Total da viagem</div>
+      <div class="report-row"><span>Distância</span><span>${tripKm} km</span></div>
+      <div class="report-row"><span>Tempo rodando</span><span>${fmtDuration(tripDriveTotal)}</span></div>
+      <div class="report-row"><span>Tempo parado</span><span>${fmtDuration(tripStopTotal)}</span></div>
+      <div class="report-row total"><span>Velocidade média geral</span><span>${tripSpeed} km/h</span></div>
+      <div class="report-row" style="border-bottom:none; padding-top:10px;"><span>vs. planejado</span><span>${finalDiffHtml}</span></div>
+    </div>`;
+}
+
+function render(){
+  const e = state.events;
+  const road = document.getElementById('road');
+
+  road.innerHTML = `
+    <div class="leg-label">Dia 1 · Fortaleza → Salgueiro</div>
+    ${checkpointCard('d1_saida')}
+    ${stopBox(1, !!e.d1_saida && !e.d1_chegada)}
+    ${checkpointCard('d1_chegada')}
+
+    <div class="leg-label">Dia 2 · Salgueiro → Nova Soure</div>
+    ${checkpointCard('d2_saida')}
+    ${stopBox(2, !!e.d2_saida && !e.d2_chegada)}
+    ${checkpointCard('d2_chegada')}
+  `;
+
+  // progress
+  let kmDone = 0;
+  if(e.d1_saida) kmDone = 0;
+  if(e.d1_chegada) kmDone = 590;
+  if(e.d2_saida) kmDone = 590;
+  if(e.d2_chegada) kmDone = 994;
+  const pct = Math.round((kmDone/994)*100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressKm').textContent = `${kmDone} / 994 km`;
+  document.getElementById('progressPct').textContent = pct + '%';
+
+  // status pill: compare last logged event to planned
+  const order = ['d1_saida','d1_chegada','d2_saida','d2_chegada'];
+  let lastKey = null;
+  order.forEach(k => { if(e[k]) lastKey = k; });
+  const pillEl = document.getElementById('statusPill');
+  if(lastKey){
+    const diffMs = new Date(e[lastKey]) - new Date(PLAN[lastKey].planned);
+    if(diffMs > 15*60000){
+      pillEl.innerHTML = `<span class="status-pill status-alert">⏱ ${fmtDuration(diffMs)} atrás do planejado</span>`;
+    } else if(diffMs < -15*60000) {
+      pillEl.innerHTML = `<span class="status-pill status-good">⏱ ${fmtDuration(Math.abs(diffMs))} adiantado</span>`;
+    } else {
+      pillEl.innerHTML = `<span class="status-pill status-good">✅ no horário</span>`;
+    }
+  } else {
+    pillEl.innerHTML = `<span class="status-pill" style="background:rgba(138,146,144,0.15); color:#cfd3d4; border:1px solid #6c7274;">viagem ainda não iniciada</span>`;
+  }
+
+  // report
+  const reportEl = document.getElementById('report');
+  const reportHtml = buildReport();
+  if(reportHtml){
+    reportEl.innerHTML = reportHtml;
+    reportEl.hidden = false;
+  } else {
+    reportEl.hidden = true;
+  }
+}
+
+loadState();
+
+// re-render every 30s while a stop is active, to keep the live timer moving
+setInterval(() => { if(state.activeStop.leg) render(); }, 30000);
+</script>
+</body>
+</html>
