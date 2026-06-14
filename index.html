@@ -278,6 +278,38 @@
     cursor:pointer;
   }
   .loading{text-align:center; padding:40px 0; opacity:0.6; font-family:'Roboto Mono',monospace; font-size:0.8rem;}
+
+  /* AI agent section */
+  .ai-section{
+    margin-top:20px;
+    background:var(--sign);
+    color:var(--asphalt);
+    border-radius:4px;
+    padding:16px;
+    border: 2px dashed var(--green);
+  }
+  .ai-section h3{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    font-size:0.85rem;
+    letter-spacing:1.5px;
+    color:var(--green);
+    margin-bottom:10px;
+  }
+  .btn-ai{
+    background:var(--green);
+    color:var(--sign);
+  }
+  .btn-ai:disabled{opacity:0.6; cursor:default;}
+  .ai-result{
+    margin-top:12px;
+    font-size:0.88rem;
+    line-height:1.55;
+  }
+  .ai-result p{margin-bottom:8px;}
+  .ai-result ul{margin:4px 0 10px 18px;}
+  .ai-result:empty{display:none;}
+  .ai-error{color:var(--alert); font-size:0.82rem;}
 </style>
 </head>
 <body>
@@ -301,6 +333,12 @@
 </div>
 
 <div class="report" id="report" hidden></div>
+
+<div class="ai-section" id="aiSection" hidden>
+  <h3>🤖 Resumo com IA</h3>
+  <button class="btn-ai" id="aiBtn" onclick="generateAISummary()">Gerar resumo da viagem com IA</button>
+  <div class="ai-result" id="aiResult"></div>
+</div>
 
 <button class="reset-link" onclick="resetTrip()">Reiniciar registro de viagem</button>
 
@@ -509,6 +547,113 @@ function buildReport(){
     </div>`;
 }
 
+// ── Agente de IA: calcula estatísticas, monta o prompt e chama a API da Claude ──
+
+function computeStats(){
+  const e = state.events;
+  const leg1Total = new Date(e.d1_chegada) - new Date(e.d1_saida);
+  const leg1Stop  = sumStops(1);
+  const leg1Drive = leg1Total - leg1Stop;
+  const leg1Speed = LEG_KM[1] / (leg1Drive/3600000);
+
+  const leg2Total = new Date(e.d2_chegada) - new Date(e.d2_saida);
+  const leg2Stop  = sumStops(2);
+  const leg2Drive = leg2Total - leg2Stop;
+  const leg2Speed = LEG_KM[2] / (leg2Drive/3600000);
+
+  const finalDiff = new Date(e.d2_chegada) - new Date(PLAN.d2_chegada.planned);
+
+  return { leg1Total, leg1Stop, leg1Drive, leg1Speed, leg2Total, leg2Stop, leg2Drive, leg2Speed, finalDiff };
+}
+
+function buildAIPrompt(){
+  const e = state.events;
+  const s = computeStats();
+  const onTimeLabel = Math.abs(s.finalDiff) <= 15*60000
+    ? 'praticamente no horário previsto'
+    : (s.finalDiff > 0
+        ? `${fmtDuration(s.finalDiff)} depois do previsto`
+        : `${fmtDuration(Math.abs(s.finalDiff))} antes do previsto`);
+
+  return `Minha família (eu, minha esposa, meu filho de 8 anos e minha sogra) acabamos de fazer uma viagem de carro de Fortaleza (CE) até Nova Soure (BA), no total ~994km em 2 dias, dormindo numa pousada em Salgueiro (PE) no meio do caminho.
+
+Dados reais da viagem:
+- Dia 1 (Fortaleza → Salgueiro, 590km): saída ${fmtDateTime(e.d1_saida)}, chegada ${fmtDateTime(e.d1_chegada)}, tempo rodando ${fmtDuration(s.leg1Drive)}, tempo parado ${fmtDuration(s.leg1Stop)}, velocidade média ${s.leg1Speed.toFixed(0)} km/h.
+- Dia 2 (Salgueiro → Nova Soure, 404km): saída ${fmtDateTime(e.d2_saida)}, chegada ${fmtDateTime(e.d2_chegada)}, tempo rodando ${fmtDuration(s.leg2Drive)}, tempo parado ${fmtDuration(s.leg2Stop)}, velocidade média ${s.leg2Speed.toFixed(0)} km/h.
+- Chegamos a Nova Soure ${onTimeLabel}.
+
+Tarefas:
+1. Escreva um resumo curto e descontraído da viagem, em 2ª pessoa do plural ("vocês"), estilo diário de bordo, comentando o ritmo e o esforço da família.
+2. Pesquise na web e sugira 2 lugares (comida ou passeio) em Nova Soure-BA ou bem próximo, para a família aproveitar agora que chegaram, com 1 frase de descrição cada.
+
+Responda em português, em markdown simples (sem títulos grandes, pode usar lista com "-" para os lugares).`;
+}
+
+// Conversor bem simples de markdown -> HTML (só o suficiente para esta resposta)
+function simpleMarkdownToHtml(md){
+  return md
+    .split(/\n\n+/)
+    .map(block => {
+      block = block.trim();
+      if(!block) return '';
+      const lines = block.split('\n').map(l => l.trim());
+      if(lines.every(l => l.startsWith('-'))){
+        const items = lines.map(l => `<li>${l.replace(/^-\s*/, '')}</li>`).join('');
+        return `<ul>${items}</ul>`;
+      }
+      return `<p>${block.replace(/\n/g, '<br>')}</p>`;
+    })
+    .join('')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
+async function generateAISummary(){
+  const btn = document.getElementById('aiBtn');
+  const resultEl = document.getElementById('aiResult');
+
+  btn.disabled = true;
+  btn.textContent = '🔎 Pesquisando e escrevendo...';
+  resultEl.innerHTML = '';
+
+  try{
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1024,
+        messages: [
+          { role: "user", content: buildAIPrompt() }
+        ],
+        tools: [
+          { type: "web_search_20250305", name: "web_search" }
+        ]
+      })
+    });
+
+    if(!response.ok){
+      throw new Error('Resposta da API: ' + response.status);
+    }
+
+    const data = await response.json();
+    const text = (data.content || [])
+      .filter(block => block.type === 'text')
+      .map(block => block.text)
+      .join('\n\n');
+
+    resultEl.innerHTML = text
+      ? simpleMarkdownToHtml(text)
+      : '<p class="ai-error">A IA não retornou texto. Tente novamente.</p>';
+
+  }catch(err){
+    console.error('Erro ao gerar resumo com IA', err);
+    resultEl.innerHTML = '<p class="ai-error">Não foi possível gerar o resumo agora. Verifique a internet e tente de novo.</p>';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = '🔁 Gerar novamente';
+  }
+}
+
 function render(){
   const e = state.events;
   const road = document.getElementById('road');
@@ -556,12 +701,15 @@ function render(){
 
   // report
   const reportEl = document.getElementById('report');
+  const aiSectionEl = document.getElementById('aiSection');
   const reportHtml = buildReport();
   if(reportHtml){
     reportEl.innerHTML = reportHtml;
     reportEl.hidden = false;
+    aiSectionEl.hidden = false;
   } else {
     reportEl.hidden = true;
+    aiSectionEl.hidden = true;
   }
 }
 
